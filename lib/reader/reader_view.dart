@@ -301,8 +301,19 @@ class _ReaderViewState extends State<ReaderView> {
         body {
             background-color: ` + bgColor + ` !important;
             color: ` + textColor + ` !important;
-            padding: 20px 20px 100px 20px !important;
+            padding: 50px 24px 100px 24px !important;
             margin: 0 !important;
+        }
+        /* Hide common EPUB running headers and footers to ensure clean immersive layout */
+        .runningheader, .runningfooter, 
+        .epub-header, .epub-footer, 
+        .pageheader, .pagefooter, 
+        .page-header, .page-footer, 
+        .page-number, .pagenum, 
+        .running-header, .running-footer, 
+        .epub-runningheader, .epub-runningfooter,
+        .header, .footer {
+            display: none !important;
         }
         img {
             max-width: 100% !important;
@@ -666,14 +677,32 @@ class _ReaderViewState extends State<ReaderView> {
 
   // Get text color for overlays based on reading theme
   Color get _overlayTextColor {
-    return (_theme == 'dark' || _theme == 'night') ? Colors.white : Colors.black87;
+    switch (_theme) {
+      case 'sepia':
+        return const Color(0xFF3C2F2F);
+      case 'dark':
+        return const Color(0xFFE0E0E0);
+      case 'night':
+        return const Color(0xFF808080);
+      case 'light':
+      default:
+        return Colors.black87;
+    }
   }
 
   // Get background color for control overlays
   Color get _overlayBgColor {
-    return (_theme == 'dark' || _theme == 'night')
-        ? const Color(0xFF2C2C2C).withOpacity(0.95)
-        : Colors.white.withOpacity(0.95);
+    switch (_theme) {
+      case 'sepia':
+        return const Color(0xFFF5EACF);
+      case 'dark':
+        return const Color(0xFF2C2C2C);
+      case 'night':
+        return const Color(0xFF121212);
+      case 'light':
+      default:
+        return Colors.white;
+    }
   }
 
   @override
@@ -751,15 +780,15 @@ class _ReaderViewState extends State<ReaderView> {
           // Top Header Overlay
           AnimatedPositioned(
             duration: const Duration(milliseconds: 200),
-            top: _isControlsVisible ? 0 : -180,
+            top: _isControlsVisible ? 0 : -150,
             left: 0,
             right: 0,
             child: Container(
               padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 8,
-                left: 16,
-                right: 16,
-                bottom: 8,
+                top: MediaQuery.of(context).padding.top + 4,
+                left: 8,
+                right: 8,
+                bottom: 4,
               ),
               decoration: BoxDecoration(
                 color: _overlayBgColor,
@@ -771,44 +800,49 @@ class _ReaderViewState extends State<ReaderView> {
                   )
                 ],
               ),
-              child: AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                leading: IconButton(
-                  icon: Icon(Icons.arrow_back_ios, color: _overlayTextColor),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              child: SizedBox(
+                height: 50,
+                child: Row(
                   children: [
-                    Text(
-                      widget.book.title,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _overlayTextColor.withOpacity(0.6),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    IconButton(
+                      icon: Icon(Icons.arrow_back_ios, color: _overlayTextColor),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                    Text(
-                      _currentChapterTitle,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: _overlayTextColor,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.book.title,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _overlayTextColor.withOpacity(0.6),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _currentChapterTitle,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: _overlayTextColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.menu, color: _overlayTextColor),
+                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                     ),
                   ],
                 ),
-                actions: [
-                  IconButton(
-                    icon: Icon(Icons.menu, color: _overlayTextColor),
-                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                  ),
-                ],
               ),
             ),
           ),
