@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:epub_reader/core/book_parser.dart';
@@ -20,7 +21,7 @@ class _ReaderViewState extends State<ReaderView> {
   InAppWebViewController? _webViewController;
   int _currentSpineIndex = 0;
   bool _isLoading = true;
-  bool _isControlsVisible = true;
+  bool _isControlsVisible = false;
   double _fontSize = 18.0; // font size in px
   String _theme = 'light'; // light, sepia, dark, night
   String _fontFamily = 'default'; // default, serif, sans-serif, monospace
@@ -34,12 +35,32 @@ class _ReaderViewState extends State<ReaderView> {
   void initState() {
     super.initState();
     _loadSettingsAndProgress();
+    // Start in immersive fullscreen mode by default
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
     _saveDebounce?.cancel();
+    // Restore default system UI mode when leaving the reader
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     super.dispose();
+  }
+
+  void _updateSystemUI() {
+    if (_isControlsVisible) {
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
+    } else {
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.immersiveSticky,
+      );
+    }
   }
 
   // Load user settings and last read progress
@@ -669,6 +690,7 @@ class _ReaderViewState extends State<ReaderView> {
               setState(() {
                 _isControlsVisible = !_isControlsVisible;
               });
+              _updateSystemUI();
             },
             child: InAppWebView(
               initialUrlRequest: URLRequest(url: WebUri(_currentChapterUrl)),
@@ -688,6 +710,7 @@ class _ReaderViewState extends State<ReaderView> {
                     setState(() {
                       _isControlsVisible = !_isControlsVisible;
                     });
+                    _updateSystemUI();
                   },
                 );
                 controller.addJavaScriptHandler(
@@ -728,7 +751,7 @@ class _ReaderViewState extends State<ReaderView> {
           // Top Header Overlay
           AnimatedPositioned(
             duration: const Duration(milliseconds: 200),
-            top: _isControlsVisible ? 0 : -100,
+            top: _isControlsVisible ? 0 : -180,
             left: 0,
             right: 0,
             child: Container(
@@ -856,6 +879,7 @@ class _ReaderViewState extends State<ReaderView> {
                           setState(() {
                             _isControlsVisible = false;
                           });
+                          _updateSystemUI();
                           _scaffoldKey.currentState?.openDrawer();
                         },
                       ),
@@ -875,6 +899,7 @@ class _ReaderViewState extends State<ReaderView> {
                           setState(() {
                             _isControlsVisible = false;
                           });
+                          _updateSystemUI();
                           _showFontSettingsBottomSheet(context);
                         },
                       ),
