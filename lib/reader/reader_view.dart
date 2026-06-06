@@ -260,6 +260,9 @@ class _ReaderViewState extends State<ReaderView> {
       }
 
       styleEl.innerHTML = `
+        :root {
+            --reader-font-size: ` + fontSize + `px;
+        }
         body, p, div {
             text-align: justify !important;
             text-justify: inter-character !important;
@@ -271,7 +274,7 @@ class _ReaderViewState extends State<ReaderView> {
             text-align-last: left !important;
             line-height: ` + lineHeight + ` !important;
             letter-spacing: 0.03em !important;
-            font-size: ` + fontSize + `px !important;
+            font-size: var(--reader-font-size) !important;
             ` + fontFamilyStyle + `
         }
         body {
@@ -292,6 +295,46 @@ class _ReaderViewState extends State<ReaderView> {
         }
       `;
     };
+
+    let initialDistance = 0;
+    let initialFontSize = 18;
+
+    document.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 2) {
+        let dx = e.touches[0].clientX - e.touches[1].clientX;
+        let dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialDistance = Math.sqrt(dx * dx + dy * dy);
+        
+        let rootStyles = window.getComputedStyle(document.documentElement);
+        let currentSizeStr = rootStyles.getPropertyValue('--reader-font-size');
+        initialFontSize = parseFloat(currentSizeStr) || 18;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function(e) {
+      if (e.touches.length === 2 && initialDistance > 0) {
+        let dx = e.touches[0].clientX - e.touches[1].clientX;
+        let dy = e.touches[0].clientY - e.touches[1].clientY;
+        let currentDistance = Math.sqrt(dx * dx + dy * dy);
+        let scale = currentDistance / initialDistance;
+        let newFontSize = initialFontSize * scale;
+        
+        newFontSize = Math.max(12, Math.min(45, newFontSize));
+        document.documentElement.style.setProperty('--reader-font-size', newFontSize + 'px');
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function(e) {
+      if (e.touches.length < 2 && initialDistance > 0) {
+        initialDistance = 0;
+        let rootStyles = window.getComputedStyle(document.documentElement);
+        let finalSizeStr = rootStyles.getPropertyValue('--reader-font-size');
+        let finalFontSize = parseFloat(finalSizeStr) || 18;
+        if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+          window.flutter_inappwebview.callHandler('saveFontSize', finalFontSize);
+        }
+      }
+    });
 
     document.addEventListener('click', function(e) {
       if (e.target.closest('a') || e.target.closest('img')) return;
@@ -645,6 +688,20 @@ class _ReaderViewState extends State<ReaderView> {
                     setState(() {
                       _isControlsVisible = !_isControlsVisible;
                     });
+                  },
+                );
+                controller.addJavaScriptHandler(
+                  handlerName: 'saveFontSize',
+                  callback: (args) async {
+                    if (args.isNotEmpty) {
+                      final val = (args[0] as num).toDouble();
+                      setState(() {
+                        _fontSize = val;
+                      });
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setDouble('reader_font_size', val);
+                      print('Saved font size from pinch gesture: $val');
+                    }
                   },
                 );
               },
