@@ -20,7 +20,7 @@ class _ReaderViewState extends State<ReaderView> {
   InAppWebViewController? _webViewController;
   int _currentSpineIndex = 0;
   bool _isLoading = true;
-  bool _isControlsVisible = false;
+  bool _isControlsVisible = true;
   double _fontSize = 18.0; // font size in px
   String _theme = 'light'; // light, sepia, dark, night
   String _fontFamily = 'default'; // default, serif, sans-serif, monospace
@@ -292,6 +292,13 @@ class _ReaderViewState extends State<ReaderView> {
         }
       `;
     };
+
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('a') || e.target.closest('img')) return;
+      if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+        window.flutter_inappwebview.callHandler('toggleControls');
+      }
+    });
   """;
 
   Widget _buildBottomSheetThemeButton(
@@ -632,6 +639,14 @@ class _ReaderViewState extends State<ReaderView> {
               ),
               onWebViewCreated: (controller) {
                 _webViewController = controller;
+                controller.addJavaScriptHandler(
+                  handlerName: 'toggleControls',
+                  callback: (args) {
+                    setState(() {
+                      _isControlsVisible = !_isControlsVisible;
+                    });
+                  },
+                );
               },
               onLoadStart: (controller, url) {
                 setState(() {
@@ -768,8 +783,18 @@ class _ReaderViewState extends State<ReaderView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      IconButton(
-                        icon: Icon(Icons.menu, color: _overlayTextColor),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.withOpacity(0.1),
+                          foregroundColor: _overlayTextColor,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        icon: Icon(Icons.menu, size: 20, color: _overlayTextColor),
+                        label: Text('章节目录', style: TextStyle(color: _overlayTextColor, fontSize: 14, fontWeight: FontWeight.bold)),
                         onPressed: () {
                           setState(() {
                             _isControlsVisible = false;
@@ -777,8 +802,18 @@ class _ReaderViewState extends State<ReaderView> {
                           _scaffoldKey.currentState?.openDrawer();
                         },
                       ),
-                      IconButton(
-                        icon: Icon(Icons.text_fields, color: _overlayTextColor),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.withOpacity(0.1),
+                          foregroundColor: _overlayTextColor,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        icon: Icon(Icons.text_fields, size: 20, color: _overlayTextColor),
+                        label: Text('排版与主题', style: TextStyle(color: _overlayTextColor, fontSize: 14, fontWeight: FontWeight.bold)),
                         onPressed: () {
                           setState(() {
                             _isControlsVisible = false;
