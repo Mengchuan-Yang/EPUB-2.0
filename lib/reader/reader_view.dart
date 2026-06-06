@@ -23,6 +23,8 @@ class _ReaderViewState extends State<ReaderView> {
   bool _isControlsVisible = false;
   double _fontSize = 18.0; // font size in px
   String _theme = 'light'; // light, sepia, dark, night
+  String _fontFamily = 'default'; // default, serif, sans-serif, monospace
+  double _lineHeight = 1.8; // 1.4, 1.8, 2.2
   bool _isAtBottom = false;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -46,6 +48,8 @@ class _ReaderViewState extends State<ReaderView> {
     setState(() {
       _theme = prefs.getString('reader_theme') ?? 'light';
       _fontSize = prefs.getDouble('reader_font_size') ?? 18.0;
+      _fontFamily = prefs.getString('reader_font_family') ?? 'default';
+      _lineHeight = prefs.getDouble('reader_line_height') ?? 1.8;
     });
 
     final cfi = prefs.getString('progress_${widget.book.id}');
@@ -124,11 +128,11 @@ class _ReaderViewState extends State<ReaderView> {
     }
   }
 
-  // Update styles in the WebView (font size, theme, text-align)
+  // Update styles in the WebView (font size, theme, text-align, font family, line height)
   void _applyStyles() {
     if (_webViewController == null) return;
     _webViewController!.evaluateJavascript(
-      source: "window.applyStyle('$_theme', $_fontSize);",
+      source: "window.applyStyle('$_theme', $_fontSize, '$_fontFamily', $_lineHeight);",
     );
   }
 
@@ -225,7 +229,7 @@ class _ReaderViewState extends State<ReaderView> {
       return (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 80;
     };
 
-    window.applyStyle = function(theme, fontSize) {
+    window.applyStyle = function(theme, fontSize, fontFamily, lineHeight) {
       let styleEl = document.getElementById('epub-reader-styles');
       if (!styleEl) {
         styleEl = document.createElement('style');
@@ -246,6 +250,15 @@ class _ReaderViewState extends State<ReaderView> {
         textColor = '#808080';
       }
       
+      let fontFamilyStyle = '';
+      if (fontFamily === 'serif') {
+        fontFamilyStyle = 'font-family: Georgia, serif !important;';
+      } else if (fontFamily === 'sans-serif') {
+        fontFamilyStyle = 'font-family: sans-serif !important;';
+      } else if (fontFamily === 'monospace') {
+        fontFamilyStyle = 'font-family: monospace !important;';
+      }
+
       styleEl.innerHTML = `
         body, p, div {
             text-align: justify !important;
@@ -256,9 +269,10 @@ class _ReaderViewState extends State<ReaderView> {
             word-break: break-word !important;
             font-feature-settings: "chws" 1, "palt" 1 !important;
             text-align-last: left !important;
-            line-height: 1.8 !important;
+            line-height: ` + lineHeight + ` !important;
             letter-spacing: 0.03em !important;
             font-size: ` + fontSize + `px !important;
+            ` + fontFamilyStyle + `
         }
         body {
             background-color: ` + bgColor + ` !important;
@@ -280,14 +294,20 @@ class _ReaderViewState extends State<ReaderView> {
     };
   """;
 
-  // Build Theme Selection Widget
-  Widget _buildThemeButton(String themeName, Color bg, Color text, String label) {
+  Widget _buildBottomSheetThemeButton(
+    String themeName,
+    Color bg,
+    Color text,
+    String label,
+    StateSetter setModalState,
+  ) {
     final isSelected = _theme == themeName;
     return GestureDetector(
       onTap: () async {
         setState(() {
           _theme = themeName;
         });
+        setModalState(() {});
         _applyStyles();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('reader_theme', themeName);
@@ -310,6 +330,251 @@ class _ReaderViewState extends State<ReaderView> {
           style: TextStyle(color: text, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
         ),
       ),
+    );
+  }
+
+  Widget _buildFontFamilyChip(String familyValue, String label, StateSetter setModalState) {
+    final isSelected = _fontFamily == familyValue;
+    final isDarkTheme = _theme == 'dark' || _theme == 'night';
+    final textColor = isDarkTheme ? Colors.white : Colors.black87;
+    
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: Colors.blue.withOpacity(0.2),
+      backgroundColor: Colors.transparent,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.blue : textColor,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isSelected ? Colors.blue : Colors.grey.withOpacity(0.3),
+          width: isSelected ? 1.5 : 1,
+        ),
+      ),
+      showCheckmark: false,
+      onSelected: (selected) async {
+        if (selected) {
+          setState(() {
+            _fontFamily = familyValue;
+          });
+          setModalState(() {});
+          _applyStyles();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('reader_font_family', familyValue);
+        }
+      },
+    );
+  }
+
+  Widget _buildLineHeightChip(double heightValue, String label, StateSetter setModalState) {
+    final isSelected = _lineHeight == heightValue;
+    final isDarkTheme = _theme == 'dark' || _theme == 'night';
+    final textColor = isDarkTheme ? Colors.white : Colors.black87;
+    
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: Colors.blue.withOpacity(0.2),
+      backgroundColor: Colors.transparent,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.blue : textColor,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isSelected ? Colors.blue : Colors.grey.withOpacity(0.3),
+          width: isSelected ? 1.5 : 1,
+        ),
+      ),
+      showCheckmark: false,
+      onSelected: (selected) async {
+        if (selected) {
+          setState(() {
+            _lineHeight = heightValue;
+          });
+          setModalState(() {});
+          _applyStyles();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setDouble('reader_line_height', heightValue);
+        }
+      },
+    );
+  }
+
+  void _showFontSettingsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            final isDarkTheme = _theme == 'dark' || _theme == 'night';
+            final sheetBgColor = isDarkTheme ? const Color(0xFF2C2C2C) : Colors.white;
+            final sheetTextColor = isDarkTheme ? Colors.white : Colors.black87;
+
+            return Container(
+              decoration: BoxDecoration(
+                color: sheetBgColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, -5),
+                  )
+                ],
+              ),
+              padding: const EdgeInsets.only(left: 24, right: 24, top: 20, bottom: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: sheetTextColor.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    '阅读设置',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: sheetTextColor,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    '背景主题',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: sheetTextColor.withOpacity(0.6),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildBottomSheetThemeButton('light', Colors.white, Colors.black87, '明亮', setModalState),
+                      _buildBottomSheetThemeButton('sepia', const Color(0xFFFBF0D9), const Color(0xFF3C2F2F), '护眼', setModalState),
+                      _buildBottomSheetThemeButton('dark', const Color(0xFF1E1E1E), const Color(0xFFE0E0E0), '暗黑', setModalState),
+                      _buildBottomSheetThemeButton('night', Colors.black, Colors.grey, '夜间', setModalState),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '字号大小',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: sheetTextColor.withOpacity(0.6),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove),
+                            color: sheetTextColor,
+                            disabledColor: sheetTextColor.withOpacity(0.2),
+                            onPressed: _fontSize > 12.0
+                                ? () async {
+                                    setState(() {
+                                      _fontSize -= 2.0;
+                                    });
+                                    setModalState(() {});
+                                    _applyStyles();
+                                    final prefs = await SharedPreferences.getInstance();
+                                    await prefs.setDouble('reader_font_size', _fontSize);
+                                  }
+                                : null,
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              '${_fontSize.toInt()}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: sheetTextColor,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            color: sheetTextColor,
+                            disabledColor: sheetTextColor.withOpacity(0.2),
+                            onPressed: _fontSize < 36.0
+                                ? () async {
+                                    setState(() {
+                                      _fontSize += 2.0;
+                                    });
+                                    setModalState(() {});
+                                    _applyStyles();
+                                    final prefs = await SharedPreferences.getInstance();
+                                    await prefs.setDouble('reader_font_size', _fontSize);
+                                  }
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    '字体样式',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: sheetTextColor.withOpacity(0.6),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildFontFamilyChip('default', '默认', setModalState),
+                      _buildFontFamilyChip('serif', '宋体', setModalState),
+                      _buildFontFamilyChip('sans-serif', '黑体', setModalState),
+                      _buildFontFamilyChip('monospace', '等宽', setModalState),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    '行间距',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: sheetTextColor.withOpacity(0.6),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildLineHeightChip(1.4, '紧凑', setModalState),
+                      _buildLineHeightChip(1.8, '适中', setModalState),
+                      _buildLineHeightChip(2.2, '宽松', setModalState),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -456,7 +721,7 @@ class _ReaderViewState extends State<ReaderView> {
           // Bottom Control Overlay
           AnimatedPositioned(
             duration: const Duration(milliseconds: 200),
-            bottom: _isControlsVisible ? 0 : -220,
+            bottom: _isControlsVisible ? 0 : -150,
             left: 0,
             right: 0,
             child: Container(
@@ -499,40 +764,28 @@ class _ReaderViewState extends State<ReaderView> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Font Size Slider
-                  Row(
-                    children: [
-                      Icon(Icons.format_size, size: 16, color: _overlayTextColor),
-                      Expanded(
-                        child: Slider(
-                          value: _fontSize,
-                          min: 14.0,
-                          max: 30.0,
-                          divisions: 8,
-                          label: '${_fontSize.toInt()}px',
-                          onChanged: (val) async {
-                            setState(() {
-                              _fontSize = val;
-                            });
-                            _applyStyles();
-                            final prefs = await SharedPreferences.getInstance();
-                            await prefs.setDouble('reader_font_size', val);
-                          },
-                        ),
-                      ),
-                      Icon(Icons.format_size, size: 24, color: _overlayTextColor),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Theme Selection Row
+                  // Bottom Action Buttons (TOC and Font Settings)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildThemeButton('light', Colors.white, Colors.black87, '明亮'),
-                      _buildThemeButton('sepia', const Color(0xFFFBF0D9), const Color(0xFF3C2F2F), '护眼'),
-                      _buildThemeButton('dark', const Color(0xFF1E1E1E), const Color(0xFFE0E0E0), '暗黑'),
-                      _buildThemeButton('night', Colors.black, Colors.grey, '夜间'),
+                      IconButton(
+                        icon: Icon(Icons.menu, color: _overlayTextColor),
+                        onPressed: () {
+                          setState(() {
+                            _isControlsVisible = false;
+                          });
+                          _scaffoldKey.currentState?.openDrawer();
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.text_fields, color: _overlayTextColor),
+                        onPressed: () {
+                          setState(() {
+                            _isControlsVisible = false;
+                          });
+                          _showFontSettingsBottomSheet(context);
+                        },
+                      ),
                     ],
                   ),
                 ],
@@ -549,7 +802,7 @@ class _ReaderViewState extends State<ReaderView> {
           // Bottom Floating 'Next Chapter' Button (when scrolled to bottom)
           if (!_isLoading && _isAtBottom && _currentSpineIndex < widget.book.spineHrefs.length - 1)
             Positioned(
-              bottom: _isControlsVisible ? 240 : 30,
+              bottom: _isControlsVisible ? 170 : 30,
               left: 50,
               right: 50,
               child: Center(
